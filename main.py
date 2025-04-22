@@ -24,8 +24,11 @@ class UsuarioBase(BaseModel):
     usuario_nombre: str
     cargo_id: int
 
-class UsuarioCreate(UsuarioBase):
+class UsuarioCreate(BaseModel):
+    usuario_id: Optional[int] = None  # Ahora el usuario puede proporcionar el ID
+    usuario_nombre: str
     usuario_password: str
+    cargo_id: int
 
 class Usuario(UsuarioBase):
     usuario_id: int
@@ -119,30 +122,40 @@ async def agregar_usuario(usuario: UsuarioCreate):
     try:
         # Verificar si el cargo existe
         cargo = supabase.table("cargo").select("*").eq("cargo_id", usuario.cargo_id).execute()
+        print(f"Cargo encontrado: {cargo}")  # Log para depuración
         if not cargo.data:
             raise HTTPException(status_code=400, detail="El cargo especificado no existe")
         
-        # Verificar si el usuario ya existe
-        usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario.usuario_id).execute()
-        if usuario_existente.data:
-            raise HTTPException(status_code=400, detail="El ID de usuario ya existe")
+        # Verificar si el usuario ya existe (si se proporciona un usuario_id)
+        if usuario.usuario_id is not None:
+            usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario.usuario_id).execute()
+            print(f"Usuario existente: {usuario_existente}")  # Log para depuración
+            if usuario_existente.data:
+                raise HTTPException(status_code=400, detail="El ID de usuario ya existe")
         
-        # Insertar nuevo usuario
-        data = supabase.table("usuario").insert({
-            "usuario_id": usuario.usuario_id,
+        # Preparar los datos para insertar
+        usuario_data = {
             "usuario_nombre": usuario.usuario_nombre,
             "usuario_password": usuario.usuario_password,
             "cargo_id": usuario.cargo_id
-        }).execute()
+        }
+        if usuario.usuario_id is not None:
+            usuario_data["usuario_id"] = usuario.usuario_id  # Usar el ID proporcionado
+        
+        # Insertar nuevo usuario
+        data = supabase.table("usuario").insert(usuario_data).execute()
+        print(f"Resultado de inserción: {data}")  # Log para depuración
         
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al agregar el usuario")
         
         return data.data[0]
-    except HTTPException:
+    except HTTPException as http_err:
+        print(f"HTTPException: {http_err.detail}")  # Log para depuración
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error interno del servidor")
+        print(f"Error inesperado: {e}")  # Log para depuración
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 # Endpoints de Usuarios
 @app.get("/usuarios/", response_model=list[dict])
@@ -182,6 +195,43 @@ async def agregar_cargo(cargo: CargoBase):
         
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al agregar el cargo")
+        
+        return data.data[0]
+    except HTTPException as http_err:
+        print(f"HTTPException: {http_err.detail}")  # Log para depuración
+        raise
+    except Exception as e:
+        print(f"Error inesperado: {e}")  # Log para depuración
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.put("/usuarios/update/{usuario_id}", response_model=Usuario)
+async def actualizar_usuario(usuario_id: int, usuario: UsuarioCreate):
+    try:
+        # Verificar si el usuario existe
+        usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario_id).execute()
+        print(f"Usuario existente: {usuario_existente}")  # Log para depuración
+        if not usuario_existente.data:
+            raise HTTPException(status_code=404, detail="El usuario especificado no existe")
+        
+        # Verificar si el cargo existe
+        cargo = supabase.table("cargo").select("*").eq("cargo_id", usuario.cargo_id).execute()
+        print(f"Cargo encontrado: {cargo}")  # Log para depuración
+        if not cargo.data:
+            raise HTTPException(status_code=400, detail="El cargo especificado no existe")
+        
+        # Preparar los datos para actualizar
+        usuario_data = {
+            "usuario_nombre": usuario.usuario_nombre,
+            "usuario_password": usuario.usuario_password,
+            "cargo_id": usuario.cargo_id
+        }
+        
+        # Actualizar el usuario en la base de datos
+        data = supabase.table("usuario").update(usuario_data).eq("usuario_id", usuario_id).execute()
+        print(f"Resultado de actualización: {data}")  # Log para depuración
+        
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar el usuario")
         
         return data.data[0]
     except HTTPException as http_err:
