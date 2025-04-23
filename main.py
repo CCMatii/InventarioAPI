@@ -296,3 +296,21 @@ async def eliminar_usuario(usuario_id: int):
     except Exception as e:
         print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.get("/usuarios/{usuario_id}/cargo", response_model=dict)
+async def obtener_cargo_usuario(usuario_id: int):
+    try:
+        # Consultar el usuario por su ID
+        usuario = supabase.table("usuario").select("cargo_id").eq("usuario_id", usuario_id).execute()
+        
+        if not usuario.data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Retornar el cargo_id del usuario
+        return {"usuario_id": usuario_id, "cargo_id": usuario.data[0]["cargo_id"]}
+    except HTTPException as http_err:
+        print(f"HTTPException: {http_err.detail}")  # Log para depuración
+        raise
+    except Exception as e:
+        print(f"Error inesperado: {e}")  # Log para depuración
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
