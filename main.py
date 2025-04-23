@@ -306,8 +306,8 @@ async def obtener_cargo_usuario(usuario_id: int):
         if not usuario.data:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # Retornar el cargo_id del usuario
-        return {"usuario_id": usuario_id, "cargo_id": usuario.data[0]["cargo_id"]}
+        # Retornar solo el cargo_id del usuario
+        return {"cargo_id": usuario.data[0]["cargo_id"]}
     except HTTPException as http_err:
         print(f"HTTPException: {http_err.detail}")  # Log para depuración
         raise
