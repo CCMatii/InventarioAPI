@@ -47,6 +47,11 @@ class Usuario(UsuarioBase):
     class Config:
         from_attributes = True  # Actualizado de orm_mode a from_attributes
 
+class UsuarioUpdate(BaseModel):
+    usuario_nombre: Optional[str] = None
+    usuario_password: Optional[str] = None
+    cargo_id: Optional[int] = None
+
 class CargoBase(BaseModel):
     cargo_id: int
     cargo_nombre: str
@@ -225,52 +230,37 @@ async def agregar_cargo(
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
 @app.put("/usuarios/update/{usuario_id}", response_model=Usuario)
-async def actualizar_usuario(
-    usuario_id: int,
-    usuario_nombre: Optional[str] = None,
-    usuario_password: Optional[str] = None,
-    cargo_id: Optional[int] = None
-):
+async def actualizar_usuario(usuario_id: int, datos: UsuarioUpdate):
     try:
-        # Verificar si el usuario existe
         usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario_id).execute()
-        print(f"Usuario existente: {usuario_existente}")  # Log para depuración
         if not usuario_existente.data:
             raise HTTPException(status_code=404, detail="El usuario especificado no existe")
-        
-        # Verificar si el cargo existe (si se proporciona cargo_id)
-        if cargo_id is not None:
-            cargo = supabase.table("cargo").select("*").eq("cargo_id", cargo_id).execute()
-            print(f"Cargo encontrado: {cargo}")  # Log para depuración
+
+        if datos.cargo_id is not None:
+            cargo = supabase.table("cargo").select("*").eq("cargo_id", datos.cargo_id).execute()
             if not cargo.data:
                 raise HTTPException(status_code=400, detail="El cargo especificado no existe")
-        
-        # Preparar los datos para actualizar
+
         usuario_data = {}
-        if usuario_nombre is not None:
-            usuario_data["usuario_nombre"] = usuario_nombre
-        if usuario_password is not None:
-            usuario_data["usuario_password"] = usuario_password
-        if cargo_id is not None:
-            usuario_data["cargo_id"] = cargo_id
-        
-        # Verificar si hay datos para actualizar
+        if datos.usuario_nombre is not None:
+            usuario_data["usuario_nombre"] = datos.usuario_nombre
+        if datos.usuario_password is not None:
+            usuario_data["usuario_password"] = datos.usuario_password
+        if datos.cargo_id is not None:
+            usuario_data["cargo_id"] = datos.cargo_id
+
         if not usuario_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
-        
-        # Actualizar el usuario en la base de datos
+
         data = supabase.table("usuario").update(usuario_data).eq("usuario_id", usuario_id).execute()
-        print(f"Resultado de actualización: {data}")  # Log para depuración
-        
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al actualizar el usuario")
-        
+
         return data.data[0]
+
     except HTTPException as http_err:
-        print(f"HTTPException: {http_err.detail}")  # Log para depuración
         raise
     except Exception as e:
-        print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
 @app.delete("/usuarios/delete/{usuario_id}", response_model=dict)
