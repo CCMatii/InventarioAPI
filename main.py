@@ -33,24 +33,24 @@ app.add_middleware(
 # Modelos Pydantic
 class UsuarioBase(BaseModel):
     usuario_nombre: str
-    cargo_id: int
+    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
 
 class UsuarioCreate(BaseModel):
-    usuario_id: int  # Ahora el usuario puede proporcionar el ID
+    usuario_id: int
     usuario_nombre: str
     usuario_password: str
-    cargo_id: int
+    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
 
 class Usuario(UsuarioBase):
     usuario_id: int
 
     class Config:
-        from_attributes = True  # Actualizado de orm_mode a from_attributes
+        from_attributes = True
 
 class UsuarioUpdate(BaseModel):
     usuario_nombre: Optional[str] = None
     usuario_password: Optional[str] = None
-    cargo_id: Optional[int] = None
+    cargo_nombre: Optional[str] = None  # Cambiado de cargo_id a cargo_nombre
 
 class CargoBase(BaseModel):
     cargo_id: int
@@ -137,13 +137,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 @app.get("/usuarios/", response_model=list[dict])
 async def listar_usuarios():
     try:
-        # Obtener todos los usuarios
-        usuarios = supabase.table("usuario").select("usuario_id, usuario_nombre").execute()
+        # Obtener todos los usuarios con sus nombres de cargo
+        usuarios = supabase.table("usuario").select("usuario_id, usuario_nombre, cargo_nombre").execute()
         
         if not usuarios.data:
             raise HTTPException(status_code=404, detail="No se encontraron usuarios")
         
-        # Retornar la lista de usuarios con sus IDs y nombres
+        # Retornar la lista de usuarios con sus IDs, nombres y cargos
         return usuarios.data
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al obtener los usuarios")
@@ -152,28 +152,27 @@ async def listar_usuarios():
 async def agregar_usuario(
     usuario_nombre: str,
     usuario_password: str,
-    cargo_id: int,
+    cargo_nombre: str,
     usuario_id: int
 ):
     try:
         # Verificar si el cargo existe
-        cargo = supabase.table("cargo").select("*").eq("cargo_id", cargo_id).execute()
+        cargo = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
         print(f"Cargo encontrado: {cargo}")  # Log para depuración
         if not cargo.data:
             raise HTTPException(status_code=400, detail="El cargo especificado no existe")
         
-        # Verificar si el usuario ya existe (si se proporciona un usuario_id)
-        if usuario_id is not None:
-            usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario_id).execute()
-            print(f"Usuario existente: {usuario_existente}")  # Log para depuración
-            if usuario_existente.data:
-                raise HTTPException(status_code=400, detail="El ID de usuario ya existe")
+        # Verificar si el usuario ya existe
+        usuario_existente = supabase.table("usuario").select("*").eq("usuario_id", usuario_id).execute()
+        print(f"Usuario existente: {usuario_existente}")  # Log para depuración
+        if usuario_existente.data:
+            raise HTTPException(status_code=400, detail="El ID de usuario ya existe")
         
         # Preparar los datos para insertar
         usuario_data = {
             "usuario_nombre": usuario_nombre,
             "usuario_password": usuario_password,
-            "cargo_id": cargo_id
+            "cargo_nombre": cargo_nombre
         }
         if usuario_id is not None:
             usuario_data["usuario_id"] = usuario_id  # Usar el ID proporcionado
@@ -236,8 +235,8 @@ async def actualizar_usuario(usuario_id: int, datos: UsuarioUpdate):
         if not usuario_existente.data:
             raise HTTPException(status_code=404, detail="El usuario especificado no existe")
 
-        if datos.cargo_id is not None:
-            cargo = supabase.table("cargo").select("*").eq("cargo_id", datos.cargo_id).execute()
+        if datos.cargo_nombre is not None:
+            cargo = supabase.table("cargo").select("*").eq("cargo_nombre", datos.cargo_nombre).execute()
             if not cargo.data:
                 raise HTTPException(status_code=400, detail="El cargo especificado no existe")
 
@@ -246,8 +245,8 @@ async def actualizar_usuario(usuario_id: int, datos: UsuarioUpdate):
             usuario_data["usuario_nombre"] = datos.usuario_nombre
         if datos.usuario_password is not None:
             usuario_data["usuario_password"] = datos.usuario_password
-        if datos.cargo_id is not None:
-            usuario_data["cargo_id"] = datos.cargo_id
+        if datos.cargo_nombre is not None:
+            usuario_data["cargo_nombre"] = datos.cargo_nombre
 
         if not usuario_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
@@ -257,7 +256,6 @@ async def actualizar_usuario(usuario_id: int, datos: UsuarioUpdate):
             raise HTTPException(status_code=500, detail="Error al actualizar el usuario")
 
         return data.data[0]
-
     except HTTPException as http_err:
         raise
     except Exception as e:
