@@ -30,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Modelos Pydantic
 class UsuarioBase(BaseModel):
     usuario_nombre: str
     cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
@@ -69,6 +68,21 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     usuario_id: Optional[str] = None
+
+class ProductoBase(BaseModel):
+    producto_nombre: str
+    producto_descripcion: str
+    producto_bodega: int
+    producto_proovedor: int
+
+class ProductoCreate(ProductoBase):
+    producto_id: int
+
+class ProductoUpdate(BaseModel):
+    producto_nombre: Optional[str] = None
+    producto_descripcion: Optional[str] = None
+    producto_bodega: Optional[int] = None
+    producto_proovedor: Optional[int] = None
 
 # Funciones de ayuda
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -301,4 +315,85 @@ async def obtener_cargo_usuario(usuario_id: int):
         raise
     except Exception as e:
         print(f"Error inesperado: {e}")  # Log para depuración
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/productos/", response_model=list[dict])
+async def listar_productos():
+    try:
+        productos = supabase.table("producto").select(
+            "producto_id, producto_nombre, producto_descripcion, producto_bodega, producto_proovedor"
+        ).execute()
+        if not productos.data:
+            raise HTTPException(status_code=404, detail="No se encontraron productos")
+        return productos.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener los productos: {str(e)}")
+    
+@app.post("/productos/add", response_model=dict)
+async def agregar_producto(
+    producto_id: int,
+    producto_nombre: str,
+    producto_descripcion: str,
+    producto_bodega: int,
+    producto_proovedor: int
+):
+    try:
+        producto_existente = supabase.table("producto").select("*").eq("producto_id", producto_id).execute()
+        if producto_existente.data:
+            raise HTTPException(status_code=400, detail="El ID de producto ya existe")
+        producto_data = {
+            "producto_id": producto_id,
+            "producto_nombre": producto_nombre,
+            "producto_descripcion": producto_descripcion,
+            "producto_bodega": producto_bodega,
+            "producto_proovedor": producto_proovedor
+        }
+        data = supabase.table("producto").insert(producto_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar el producto")
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.put("/productos/update/{producto_id}", response_model=dict)
+async def actualizar_producto(producto_id: int, datos: ProductoUpdate):
+    try:
+        producto_existente = supabase.table("producto").select("*").eq("producto_id", producto_id).execute()
+        if not producto_existente.data:
+            raise HTTPException(status_code=404, detail="El producto especificado no existe")
+        producto_data = {}
+        if datos.producto_nombre is not None:
+            producto_data["producto_nombre"] = datos.producto_nombre
+        if datos.producto_descripcion is not None:
+            producto_data["producto_descripcion"] = datos.producto_descripcion
+        if datos.producto_bodega is not None:
+            producto_data["producto_bodega"] = datos.producto_bodega
+        if datos.producto_proovedor is not None:
+            producto_data["producto_proovedor"] = datos.producto_proovedor
+        if not producto_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+        data = supabase.table("producto").update(producto_data).eq("producto_id", producto_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar el producto")
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.delete("/productos/delete/{producto_id}", response_model=dict)
+async def eliminar_producto(producto_id: int):
+    try:
+        producto_existente = supabase.table("producto").select("*").eq("producto_id", producto_id).execute()
+        if not producto_existente.data:
+            raise HTTPException(status_code=404, detail="El producto especificado no existe")
+        data = supabase.table("producto").delete().eq("producto_id", producto_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar el producto")
+        return {"message": f"Producto con ID {producto_id} eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
