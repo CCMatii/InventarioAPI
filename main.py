@@ -65,6 +65,7 @@ class Cargo(CargoBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    cargo_nombre: str
 
 class TokenData(BaseModel):
     usuario_id: Optional[str] = None
@@ -155,7 +156,11 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token = create_access_token(
         data={"sub": str(user["usuario_id"])}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "cargo_nombre": user.get("cargo_nombre")
+    }
 
 # Endpoints de Usuarios
 @app.get("/usuarios/", response_model=list[dict])
