@@ -84,6 +84,16 @@ class ProductoUpdate(BaseModel):
     producto_bodega: Optional[int] = None
     producto_proovedor: Optional[int] = None
 
+class MovimientoBase(BaseModel):
+    movimiento_producto: int
+    movimiento_descripcion: str
+    bodega_origen: int
+    bodega_destino: int
+    movimiento_usuario: int
+
+class MovimientoCreate(MovimientoBase):
+    movimiento_id: int
+
 # Funciones de ayuda
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -393,6 +403,45 @@ async def eliminar_producto(producto_id: int):
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al eliminar el producto")
         return {"message": f"Producto con ID {producto_id} eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/movimientos/", response_model=list[dict])
+async def listar_movimientos():
+    try:
+        movimientos = supabase.table("movimientos").select(
+            "movimiento_id, movimiento_producto, movimiento_descripcion, bodega_origen, bodega_destino, movimiento_usuario"
+        ).execute()
+        if not movimientos.data:
+            raise HTTPException(status_code=404, detail="No se encontraron movimientos")
+        return movimientos.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener los movimientos: {str(e)}")
+    
+@app.post("/movimientos/add", response_model=dict)
+async def agregar_movimiento(
+    movimiento_id: int,
+    movimiento_producto: int,
+    movimiento_descripcion: str,
+    bodega_origen: int,
+    bodega_destino: int,
+    movimiento_usuario: int
+):
+    try:
+        movimiento_data = {
+            "movimiento_id": movimiento_id,
+            "movimiento_producto": movimiento_producto,
+            "movimiento_descripcion": movimiento_descripcion,
+            "bodega_origen": bodega_origen,
+            "bodega_destino": bodega_destino,
+            "movimiento_usuario": movimiento_usuario
+        }
+        data = supabase.table("movimientos").insert(movimiento_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar el movimiento")
+        return data.data[0]
     except HTTPException:
         raise
     except Exception as e:
