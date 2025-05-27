@@ -95,6 +95,19 @@ class MovimientoBase(BaseModel):
 class MovimientoCreate(MovimientoBase):
     movimiento_id: int
 
+class ProveedorBase(BaseModel):
+    proveedor_id: int
+    proveedor_nombre: str
+    proveedor_vendedor: str
+    proveedor_contacto: str
+    proveedor_direccion: str
+    proveedor_comuna: str
+    proveedor_giro: str
+
+class ProveedorCreate(ProveedorBase):
+    proveedor_id: int
+
+
 # Funciones de ayuda
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -447,6 +460,98 @@ async def agregar_movimiento(
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al agregar el movimiento")
         return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/proveedores/", response_model=list[dict])
+async def listar_proveedores():
+    try:
+        proveedores = supabase.table("proveedor").select(
+            "proveedor_id, proveedor_nombre, proveedor_vendedor, proveedor_contacto, proveedor_direccion, proveedor_comuna, proveedor_giro"
+        ).execute()
+        if not proveedores.data:
+            raise HTTPException(status_code=404, detail="No se encontraron proveedores")
+        return proveedores.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener los proveedores: {str(e)}")
+
+@app.post("/proveedores/add", response_model=dict)
+async def agregar_proveedor(
+    proveedor_id: int,
+    proveedor_nombre: str,
+    proveedor_vendedor: str,
+    proveedor_contacto: str,
+    proveedor_direccion: str,
+    proveedor_comuna: str,
+    proveedor_giro: str
+):
+    try:
+        proveedor_data = {
+            "proveedor_id": proveedor_id,
+            "proveedor_nombre": proveedor_nombre,
+            "proveedor_vendedor": proveedor_vendedor,
+            "proveedor_contacto": proveedor_contacto,
+            "proveedor_direccion": proveedor_direccion,
+            "proveedor_comuna": proveedor_comuna,
+            "proveedor_giro": proveedor_giro
+        }
+        data = supabase.table("proveedor").insert(proveedor_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar el proveedor")
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.put("/proveedores/update/{proveedor_id}", response_model=dict)
+async def actualizar_proveedor(proveedor_id: int, datos: ProveedorBase):
+    try:
+        proveedor_existente = supabase.table("proveedor").select("*").eq("proveedor_id", proveedor_id).execute()
+        if not proveedor_existente.data:
+            raise HTTPException(status_code=404, detail="El proveedor especificado no existe")
+        
+        proveedor_data = {}
+        if datos.proveedor_nombre is not None:
+            proveedor_data["proveedor_nombre"] = datos.proveedor_nombre
+        if datos.proveedor_vendedor is not None:
+            proveedor_data["proveedor_vendedor"] = datos.proveedor_vendedor
+        if datos.proveedor_contacto is not None:
+            proveedor_data["proveedor_contacto"] = datos.proveedor_contacto
+        if datos.proveedor_direccion is not None:
+            proveedor_data["proveedor_direccion"] = datos.proveedor_direccion
+        if datos.proveedor_comuna is not None:
+            proveedor_data["proveedor_comuna"] = datos.proveedor_comuna
+        if datos.proveedor_giro is not None:
+            proveedor_data["proveedor_giro"] = datos.proveedor_giro
+        
+        if not proveedor_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+        
+        data = supabase.table("proveedor").update(proveedor_data).eq("proveedor_id", proveedor_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar el proveedor")
+        
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.delete("/proveedores/delete/{proveedor_id}", response_model=dict)
+async def eliminar_proveedor(proveedor_id: int):
+    try:
+        proveedor_existente = supabase.table("proveedor").select("*").eq("proveedor_id", proveedor_id).execute()
+        if not proveedor_existente.data:
+            raise HTTPException(status_code=404, detail="El proveedor especificado no existe")
+        
+        data = supabase.table("proveedor").delete().eq("proveedor_id", proveedor_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar el proveedor")
+        
+        return {"message": f"Proveedor con ID {proveedor_id} eliminado exitosamente"}
     except HTTPException:
         raise
     except Exception as e:
