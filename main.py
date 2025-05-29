@@ -187,7 +187,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "cargo_nombre": user.get("cargo_nombre")
+        "cargo_nombre": user.get("cargo_nombre"),
+        "usuario_id": user.get("usuario_id")
     }
 
 # Endpoints de Usuarios
