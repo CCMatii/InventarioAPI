@@ -52,13 +52,10 @@ class UsuarioUpdate(BaseModel):
     cargo_nombre: Optional[str] = None  # Cambiado de cargo_id a cargo_nombre
 
 class CargoBase(BaseModel):
-    cargo_id: int
     cargo_nombre: str
     cargo_descripcion: str
 
 class Cargo(CargoBase):
-    cargo_id: int
-
     class Config:
         from_attributes = True
 
@@ -237,37 +234,27 @@ async def agregar_usuario(
 @app.post("/cargos/add", response_model=Cargo)
 async def agregar_cargo(
     cargo_nombre: str,
-    cargo_descripcion: str,
-    cargo_id: int
+    cargo_descripcion: str
 ):
     try:
         # Verificar si el cargo ya existe
         cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
-        print(f"Cargo existente: {cargo_existente}")  # Log para depuración
         if cargo_existente.data:
             raise HTTPException(status_code=400, detail="El cargo especificado ya existe")
         
-        # Preparar los datos para insertar
+        # Insertar nuevo cargo
         cargo_data = {
             "cargo_nombre": cargo_nombre,
             "cargo_descripcion": cargo_descripcion
         }
-        if cargo_id is not None:
-            cargo_data["cargo_id"] = cargo_id  # Usar el ID proporcionado
-        
-        # Insertar nuevo cargo
         data = supabase.table("cargo").insert(cargo_data).execute()
-        print(f"Resultado de inserción: {data}")  # Log para depuración
-        
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al agregar el cargo")
         
         return data.data[0]
-    except HTTPException as http_err:
-        print(f"HTTPException: {http_err.detail}")  # Log para depuración
+    except HTTPException:
         raise
     except Exception as e:
-        print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
 @app.put("/usuarios/update/{usuario_id}", response_model=Usuario)
@@ -327,23 +314,15 @@ async def eliminar_usuario(usuario_id: int):
         print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-@app.get("/usuarios/{usuario_id}/cargo", response_model=dict)
-async def obtener_cargo_usuario(usuario_id: int):
+@app.get("/cargos/", response_model=list[dict])
+async def listar_cargos():
     try:
-        # Consultar el usuario por su ID
-        usuario = supabase.table("usuario").select("cargo_id").eq("usuario_id", usuario_id).execute()
-        
-        if not usuario.data:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-        # Retornar solo el cargo_id del usuario
-        return {"cargo_id": usuario.data[0]["cargo_id"]}
-    except HTTPException as http_err:
-        print(f"HTTPException: {http_err.detail}")  # Log para depuración
-        raise
+        cargos = supabase.table("cargo").select("cargo_id, cargo_nombre, cargo_descripcion").execute()
+        if not cargos.data:
+            raise HTTPException(status_code=404, detail="No se encontraron cargos")
+        return cargos.data
     except Exception as e:
-        print(f"Error inesperado: {e}")  # Log para depuración
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener los cargos: {str(e)}")
     
 @app.get("/productos/", response_model=list[dict])
 async def listar_productos():
