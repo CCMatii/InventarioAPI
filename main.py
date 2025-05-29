@@ -669,6 +669,37 @@ async def actualizar_inventario(inventario_id: int, datos: InventarioUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
+@app.put("/inventario/remove", response_model=dict)
+async def eliminar_cantidad_inventario(
+    producto_id: int,
+    bodega_id: int,
+    cantidad_a_eliminar: int
+):
+    try:
+        # Verificar si el producto existe en la bodega
+        inventario_existente = supabase.table("inventario").select("*").eq("producto_id", producto_id).eq("bodega_id", bodega_id).execute()
+        if not inventario_existente.data:
+            raise HTTPException(status_code=404, detail="El producto no existe en la bodega especificada")
+        
+        # Verificar si hay suficiente cantidad para eliminar
+        cantidad_actual = inventario_existente.data[0]["inventario_cantidad"]
+        if cantidad_actual < cantidad_a_eliminar:
+            raise HTTPException(status_code=400, detail="Cantidad insuficiente en el inventario para realizar la operación")
+        
+        # Calcular la nueva cantidad
+        nueva_cantidad = cantidad_actual - cantidad_a_eliminar
+        
+        # Actualizar el inventario con la nueva cantidad
+        data = supabase.table("inventario").update({"inventario_cantidad": nueva_cantidad}).eq("producto_id", producto_id).eq("bodega_id", bodega_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar la cantidad del inventario")
+        
+        return {"message": "Cantidad eliminada del inventario exitosamente", "inventario": data.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
 @app.delete("/inventario/delete/{inventario_id}", response_model=dict)
 async def eliminar_inventario(inventario_id: int):
     try:
