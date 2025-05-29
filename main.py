@@ -615,19 +615,25 @@ async def agregar_inventario(
         # Verificar si ya existe un registro con el mismo producto y bodega
         inventario_existente = supabase.table("inventario").select("*").eq("producto_id", producto_id).eq("bodega_id", bodega_id).execute()
         if inventario_existente.data:
-            raise HTTPException(status_code=400, detail="El producto ya existe en la bodega especificada")
-        
-        # Crear el nuevo registro
-        inventario_data = {
-            "producto_id": producto_id,
-            "producto_nombre": producto_nombre,
-            "bodega_id": bodega_id,
-            "inventario_cantidad": inventario_cantidad
-        }
-        data = supabase.table("inventario").insert(inventario_data).execute()
-        if not data.data:
-            raise HTTPException(status_code=500, detail="Error al agregar el registro al inventario")
-        return data.data[0]
+            # Si el producto ya existe, sumar la cantidad al registro existente
+            cantidad_actual = inventario_existente.data[0]["inventario_cantidad"]
+            nueva_cantidad = cantidad_actual + inventario_cantidad
+            data = supabase.table("inventario").update({"inventario_cantidad": nueva_cantidad}).eq("producto_id", producto_id).eq("bodega_id", bodega_id).execute()
+            if not data.data:
+                raise HTTPException(status_code=500, detail="Error al actualizar la cantidad del inventario")
+            return {"message": "Cantidad actualizada en el inventario", "inventario": data.data[0]}
+        else:
+            # Si no existe, crear un nuevo registro
+            inventario_data = {
+                "producto_id": producto_id,
+                "producto_nombre": producto_nombre,
+                "bodega_id": bodega_id,
+                "inventario_cantidad": inventario_cantidad
+            }
+            data = supabase.table("inventario").insert(inventario_data).execute()
+            if not data.data:
+                raise HTTPException(status_code=500, detail="Error al agregar el registro al inventario")
+            return {"message": "Registro agregado al inventario", "inventario": data.data[0]}
     except HTTPException:
         raise
     except Exception as e:
