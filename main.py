@@ -32,13 +32,13 @@ app.add_middleware(
 
 class UsuarioBase(BaseModel):
     usuario_nombre: str
-    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: str  
 
 class UsuarioCreate(BaseModel):
     usuario_id: int
     usuario_nombre: str
     usuario_password: str
-    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: str
 
 class Usuario(UsuarioBase):
     usuario_id: int
@@ -49,7 +49,7 @@ class Usuario(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     usuario_nombre: Optional[str] = None
     usuario_password: Optional[str] = None
-    cargo_nombre: Optional[str] = None  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: Optional[str] = None
 
 class CargoBase(BaseModel):
     cargo_nombre: str
@@ -121,6 +121,17 @@ class InventarioUpdate(BaseModel):
     producto_nombre: Optional[str] = None
     bodega_id: Optional[int] = None
     inventario_cantidad: Optional[int] = None
+
+class BodegaBase(BaseModel):
+    bodega_nombre: str
+    bodega_direccion: str
+
+class BodegaCreate(BodegaBase):
+    bodega_id: int 
+
+class BodegaUpdate(BaseModel):
+    bodega_nombre: Optional[str] = None
+    bodega_direccion: Optional[str] = None
 
 
 # Funciones de ayuda
@@ -729,3 +740,84 @@ async def obtener_usuario_actual(current_user: dict = Depends(get_current_user))
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener el usuario autenticado: {str(e)}")
+    
+@app.get("/bodegas/", response_model=list[dict])
+async def listar_bodegas():
+    try:
+        bodegas = supabase.table("bodega").select("*").execute()
+        if not bodegas.data:
+            raise HTTPException(status_code=404, detail="No se encontraron bodegas")
+        return bodegas.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener las bodegas: {str(e)}")
+    
+@app.post("/bodegas/add", response_model=dict)
+async def agregar_bodega(
+    bodega_id: int,
+    bodega_nombre: str,
+    bodega_direccion: str,
+):
+    try:
+        # Verificar si la bodega ya existe
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if bodega_existente.data:
+            raise HTTPException(status_code=400, detail="El ID de bodega ya existe")
+        
+        # Insertar nueva bodega
+        bodega_data = {
+            "bodega_id": bodega_id,
+            "bodega_nombre": bodega_nombre,
+            "bodega_direccion": bodega_direccion
+        }
+        data = supabase.table("bodega").insert(bodega_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar la bodega")
+        
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.put("/bodegas/update/{bodega_id}", response_model=dict)
+async def actualizar_bodega(bodega_id: int, datos: BodegaBase):
+    try:
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if not bodega_existente.data:
+            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
+        
+        bodega_data = {}
+        if datos.bodega_nombre is not None:
+            bodega_data["bodega_nombre"] = datos.bodega_nombre
+        if datos.bodega_direccion is not None:
+            bodega_data["bodega_direccion"] = datos.bodega_direccion
+        
+        if not bodega_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+        
+        data = supabase.table("bodega").update(bodega_data).eq("bodega_id", bodega_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar la bodega")
+        
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.delete("/bodegas/delete/{bodega_id}", response_model=dict)
+async def eliminar_bodega(bodega_id: int):
+    try:
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if not bodega_existente.data:
+            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
+        
+        data = supabase.table("bodega").delete().eq("bodega_id", bodega_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar la bodega")
+        
+        return {"message": f"Bodega con ID {bodega_id} eliminada exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
