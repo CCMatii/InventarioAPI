@@ -717,3 +717,14 @@ async def eliminar_inventario(inventario_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/usuarios/me", response_model=dict)
+async def obtener_usuario_actual(current_user: dict = Depends(get_current_user)):
+    try:
+        return {
+            "usuario_id": current_user["usuario_id"],
+            "usuario_nombre": current_user["usuario_nombre"],
+            "cargo_nombre": current_user["cargo_nombre"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener el usuario autenticado: {str(e)}")
