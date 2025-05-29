@@ -317,7 +317,7 @@ async def eliminar_usuario(usuario_id: int):
 @app.get("/cargos/", response_model=list[dict])
 async def listar_cargos():
     try:
-        cargos = supabase.table("cargo").select("cargo_id, cargo_nombre, cargo_descripcion").execute()
+        cargos = supabase.table("cargo").select("cargo_nombre, cargo_descripcion").execute()
         if not cargos.data:
             raise HTTPException(status_code=404, detail="No se encontraron cargos")
         return cargos.data
