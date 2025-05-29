@@ -62,7 +62,6 @@ class Cargo(CargoBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    usuario_id: int
     cargo_nombre: str
 
 class TokenData(BaseModel):
@@ -203,7 +202,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "usuario_id": user["usuario_id"],
         "cargo_nombre": user.get("cargo_nombre")
     }
 
