@@ -62,6 +62,7 @@ class Cargo(CargoBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    usuario_id: int
     cargo_nombre: str
 
 class TokenData(BaseModel):
@@ -177,7 +178,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
-        usuario_id = int(form_data.username)  # Usamos username para el ID
+        usuario_id = int(form_data.username)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -191,15 +192,19 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             detail="Usuario o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Crear el token de acceso
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user["usuario_id"])}, expires_delta=access_token_expires
     )
+    
+    # Retornar el token junto con el cargo y el ID del usuario
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "cargo_nombre": user.get("cargo_nombre"),
-        "usuario_id": user.get("usuario_id")
+        "usuario_id": user["usuario_id"],
+        "cargo_nombre": user.get("cargo_nombre")
     }
 
 # Endpoints de Usuarios
