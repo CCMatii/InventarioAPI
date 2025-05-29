@@ -70,7 +70,6 @@ class TokenData(BaseModel):
 class ProductoBase(BaseModel):
     producto_nombre: str
     producto_descripcion: str
-    producto_bodega: int
     producto_proovedor: int
 
 class ProductoCreate(ProductoBase):
@@ -79,7 +78,6 @@ class ProductoCreate(ProductoBase):
 class ProductoUpdate(BaseModel):
     producto_nombre: Optional[str] = None
     producto_descripcion: Optional[str] = None
-    producto_bodega: Optional[int] = None
     producto_proovedor: Optional[int] = None
 
 class MovimientoBase(BaseModel):
@@ -89,8 +87,14 @@ class MovimientoBase(BaseModel):
     bodega_destino: int
     movimiento_usuario: int
 
-class MovimientoCreate(MovimientoBase):
+class MovimientoCreate(BaseModel):
     movimiento_id: int
+    movimiento_producto: int
+    movimiento_descripcion: str
+    bodega_origen: int
+    bodega_destino: int
+    movimiento_usuario: int
+    cantidad: int
 
 class ProveedorBase(BaseModel):
     proveedor_id: int
@@ -103,6 +107,20 @@ class ProveedorBase(BaseModel):
 
 class ProveedorCreate(ProveedorBase):
     proveedor_id: int
+
+class InventarioBase(BaseModel):
+    producto_id: int
+    producto_nombre: str
+    bodega_id: int
+    inventario_cantidad: int
+
+class InventarioCreate(InventarioBase):
+    pass
+
+class InventarioUpdate(BaseModel):
+    producto_nombre: Optional[str] = None
+    bodega_id: Optional[int] = None
+    inventario_cantidad: Optional[int] = None
 
 
 # Funciones de ayuda
@@ -328,7 +346,7 @@ async def listar_cargos():
 async def listar_productos():
     try:
         productos = supabase.table("producto").select(
-            "producto_id, producto_nombre, producto_descripcion, producto_bodega, producto_proovedor"
+            "producto_id, producto_nombre, producto_descripcion, producto_proovedor"
         ).execute()
         if not productos.data:
             raise HTTPException(status_code=404, detail="No se encontraron productos")
@@ -341,7 +359,6 @@ async def agregar_producto(
     producto_id: int,
     producto_nombre: str,
     producto_descripcion: str,
-    producto_bodega: int,
     producto_proovedor: int
 ):
     try:
@@ -352,7 +369,6 @@ async def agregar_producto(
             "producto_id": producto_id,
             "producto_nombre": producto_nombre,
             "producto_descripcion": producto_descripcion,
-            "producto_bodega": producto_bodega,
             "producto_proovedor": producto_proovedor
         }
         data = supabase.table("producto").insert(producto_data).execute()
@@ -375,8 +391,6 @@ async def actualizar_producto(producto_id: int, datos: ProductoUpdate):
             producto_data["producto_nombre"] = datos.producto_nombre
         if datos.producto_descripcion is not None:
             producto_data["producto_descripcion"] = datos.producto_descripcion
-        if datos.producto_bodega is not None:
-            producto_data["producto_bodega"] = datos.producto_bodega
         if datos.producto_proovedor is not None:
             producto_data["producto_proovedor"] = datos.producto_proovedor
         if not producto_data:
@@ -419,27 +433,71 @@ async def listar_movimientos():
     
 @app.post("/movimientos/add", response_model=dict)
 async def agregar_movimiento(
-    movimiento_id: int,
     movimiento_producto: int,
     movimiento_descripcion: str,
     bodega_origen: int,
     bodega_destino: int,
+    cantidad: int,
     movimiento_usuario: int
 ):
     try:
+        # Verificar si el producto existe en la bodega de origen
+        inventario_origen = supabase.table("inventario").select("*").eq("producto_id", movimiento_producto).eq("bodega_id", bodega_origen).execute()
+        if not inventario_origen.data:
+            raise HTTPException(status_code=400, detail="El producto no existe en la bodega de origen")
+        
+        # Verificar si hay suficiente cantidad en la bodega de origen
+        if inventario_origen.data[0]["inventario_cantidad"] < cantidad:
+            raise HTTPException(status_code=400, detail="Cantidad insuficiente en la bodega de origen")
+        
+        # Verificar si el producto ya existe en la bodega de destino
+        inventario_destino = supabase.table("inventario").select("*").eq("producto_id", movimiento_producto).eq("bodega_id", bodega_destino).execute()
+        
+        if inventario_destino.data:
+            # Si existe, actualizar la cantidad en la bodega de destino
+            nueva_cantidad_destino = inventario_destino.data[0]["inventario_cantidad"] + cantidad
+            supabase.table("inventario").update({"inventario_cantidad": nueva_cantidad_destino}).eq("producto_id", movimiento_producto).eq("bodega_id", bodega_destino).execute()
+        else:
+            # Si no existe, crear un nuevo registro en la bodega de destino
+            nuevo_inventario = {
+                "producto_id": movimiento_producto,
+                "producto_nombre": inventario_origen.data[0]["producto_nombre"],
+                "bodega_id": bodega_destino,
+                "inventario_cantidad": cantidad
+            }
+
+            # Insertar el nuevo registro en la tabla inventario
+            nuevo_inventario_result = supabase.table("inventario").insert(nuevo_inventario).execute()
+
+            # Verificar si la inserción fue exitosa
+            if not nuevo_inventario_result.data:
+                raise HTTPException(status_code=500, detail="Error al crear el registro en la bodega de destino")
+        
+        # Actualizar la cantidad en la bodega de origen
+        nueva_cantidad_origen = inventario_origen.data[0]["inventario_cantidad"] - cantidad
+        supabase.table("inventario").update({"inventario_cantidad": nueva_cantidad_origen}).eq("producto_id", movimiento_producto).eq("bodega_id", bodega_origen).execute()
+        
+        # Generar un ID único para el movimiento (si no es autogenerado por la base de datos)
+        movimiento_id = supabase.table("movimientos").select("movimiento_id").order("movimiento_id", desc=True).limit(1).execute()
+        nuevo_movimiento_id = (movimiento_id.data[0]["movimiento_id"] + 1) if movimiento_id.data else 1
+        
+        # Registrar el movimiento en la tabla de movimientos
         movimiento_data = {
-            "movimiento_id": movimiento_id,
+            "movimiento_id": nuevo_movimiento_id,
             "movimiento_producto": movimiento_producto,
             "movimiento_descripcion": movimiento_descripcion,
             "bodega_origen": bodega_origen,
             "bodega_destino": bodega_destino,
-            "movimiento_usuario": movimiento_usuario
+            "movimiento_usuario": movimiento_usuario,
+            "cantidad": cantidad
         }
         data = supabase.table("movimientos").insert(movimiento_data).execute()
+        
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al agregar el movimiento")
-        return data.data[0]
-    except HTTPException:
+            raise HTTPException(status_code=500, detail="Error al registrar el movimiento")
+        
+        return {"message": "Movimiento registrado exitosamente", "movimiento": data.data[0]}
+    except HTTPException as http_err:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
@@ -531,6 +589,93 @@ async def eliminar_proveedor(proveedor_id: int):
             raise HTTPException(status_code=500, detail="Error al eliminar el proveedor")
         
         return {"message": f"Proveedor con ID {proveedor_id} eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/inventario/", response_model=list[dict])
+async def listar_inventario():
+    try:
+        inventario = supabase.table("inventario").select("*").execute()
+        if not inventario.data:
+            raise HTTPException(status_code=404, detail="No se encontraron registros en el inventario")
+        return inventario.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener el inventario: {str(e)}")
+    
+@app.post("/inventario/add", response_model=dict)
+async def agregar_inventario(
+    producto_id: int,
+    producto_nombre: str,
+    bodega_id: int,
+    inventario_cantidad: int
+):
+    try:
+        # Verificar si ya existe un registro con el mismo producto y bodega
+        inventario_existente = supabase.table("inventario").select("*").eq("producto_id", producto_id).eq("bodega_id", bodega_id).execute()
+        if inventario_existente.data:
+            raise HTTPException(status_code=400, detail="El producto ya existe en la bodega especificada")
+        
+        # Crear el nuevo registro
+        inventario_data = {
+            "producto_id": producto_id,
+            "producto_nombre": producto_nombre,
+            "bodega_id": bodega_id,
+            "inventario_cantidad": inventario_cantidad
+        }
+        data = supabase.table("inventario").insert(inventario_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar el registro al inventario")
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.put("/inventario/update/{inventario_id}", response_model=dict)
+async def actualizar_inventario(inventario_id: int, datos: InventarioUpdate):
+    try:
+        # Verificar si el registro existe
+        inventario_existente = supabase.table("inventario").select("*").eq("inventario_id", inventario_id).execute()
+        if not inventario_existente.data:
+            raise HTTPException(status_code=404, detail="El registro especificado no existe en el inventario")
+        
+        # Preparar los datos para actualizar
+        inventario_data = {}
+        if datos.producto_nombre is not None:
+            inventario_data["producto_nombre"] = datos.producto_nombre
+        if datos.bodega_id is not None:
+            inventario_data["bodega_id"] = datos.bodega_id
+        if datos.inventario_cantidad is not None:
+            inventario_data["inventario_cantidad"] = datos.inventario_cantidad
+        
+        if not inventario_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+        
+        # Actualizar el registro
+        data = supabase.table("inventario").update(inventario_data).eq("inventario_id", inventario_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar el registro del inventario")
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.delete("/inventario/delete/{inventario_id}", response_model=dict)
+async def eliminar_inventario(inventario_id: int):
+    try:
+        # Verificar si el registro existe
+        inventario_existente = supabase.table("inventario").select("*").eq("inventario_id", inventario_id).execute()
+        if not inventario_existente.data:
+            raise HTTPException(status_code=404, detail="El registro especificado no existe en el inventario")
+        
+        # Eliminar el registro
+        data = supabase.table("inventario").delete().eq("inventario_id", inventario_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar el registro del inventario")
+        return {"message": f"Registro con ID {inventario_id} eliminado exitosamente"}
     except HTTPException:
         raise
     except Exception as e:
