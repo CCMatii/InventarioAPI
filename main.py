@@ -86,6 +86,7 @@ class MovimientoBase(BaseModel):
     movimiento_descripcion: str
     bodega_origen: int
     bodega_destino: int
+    cantidad: int
     movimiento_usuario: int
 
 class MovimientoCreate(BaseModel):
