@@ -109,6 +109,14 @@ class ProveedorBase(BaseModel):
 class ProveedorCreate(ProveedorBase):
     proveedor_id: int
 
+class ProveedorUpdate(BaseModel):
+    proveedor_nombre: Optional[str] = None
+    proveedor_vendedor: Optional[str] = None
+    proveedor_contacto: Optional[str] = None
+    proveedor_direccion: Optional[str] = None
+    proveedor_comuna: Optional[str] = None
+    proveedor_giro: Optional[str] = None
+
 class InventarioBase(BaseModel):
     producto_id: int
     producto_nombre: str
@@ -561,7 +569,7 @@ async def agregar_proveedor(
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
 @app.put("/proveedores/update/{proveedor_id}", response_model=dict)
-async def actualizar_proveedor(proveedor_id: int, datos: ProveedorBase):
+async def actualizar_proveedor(proveedor_id: int, datos: ProveedorUpdate):
     try:
         proveedor_existente = supabase.table("proveedor").select("*").eq("proveedor_id", proveedor_id).execute()
         if not proveedor_existente.data:
