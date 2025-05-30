@@ -125,14 +125,14 @@ class InventarioUpdate(BaseModel):
 
 class BodegaBase(BaseModel):
     bodega_nombre: str
-    bodega_direccion: str
+    bodega_ubicacion: str
 
 class BodegaCreate(BodegaBase):
     bodega_id: int 
 
 class BodegaUpdate(BaseModel):
     bodega_nombre: Optional[str] = None
-    bodega_direccion: Optional[str] = None
+    bodega_ubicacion: Optional[str] = None
 
 
 # Funciones de ayuda
@@ -760,7 +760,7 @@ async def listar_bodegas():
 async def agregar_bodega(
     bodega_id: int,
     bodega_nombre: str,
-    bodega_direccion: str,
+    bodega_ubicacion: str,
 ):
     try:
         # Verificar si la bodega ya existe
@@ -772,7 +772,7 @@ async def agregar_bodega(
         bodega_data = {
             "bodega_id": bodega_id,
             "bodega_nombre": bodega_nombre,
-            "bodega_direccion": bodega_direccion
+            "bodega_ubicacion": bodega_ubicacion
         }
         data = supabase.table("bodega").insert(bodega_data).execute()
         if not data.data:
@@ -794,8 +794,8 @@ async def actualizar_bodega(bodega_id: int, datos: BodegaBase):
         bodega_data = {}
         if datos.bodega_nombre is not None:
             bodega_data["bodega_nombre"] = datos.bodega_nombre
-        if datos.bodega_direccion is not None:
-            bodega_data["bodega_direccion"] = datos.bodega_direccion
+        if datos.bodega_ubicacion is not None:
+            bodega_data["bodega_ubicacion"] = datos.bodega_ubicacion
         
         if not bodega_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
