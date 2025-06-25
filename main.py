@@ -79,7 +79,8 @@ class ProductoBase(BaseModel):
     producto_nombre: str
     producto_descripcion: str
     producto_proovedor: int
-    cantidad_total: Optional[int] = None 
+    producto_categoria: Optional[str] = None
+    cantidad_total: Optional[int] = None
 
 class ProductoCreate(ProductoBase):
     producto_id: int
@@ -88,6 +89,7 @@ class ProductoUpdate(BaseModel):
     producto_nombre: Optional[str] = None
     producto_descripcion: Optional[str] = None
     producto_proovedor: Optional[int] = None
+    producto_categoria: Optional[str] = None
 
 class MovimientoBase(BaseModel):
     movimiento_producto: int
@@ -334,7 +336,7 @@ async def eliminar_usuario(usuario_id: int):
 async def listar_productos():
     try:
         productos = supabase.table("producto").select(
-            "producto_id, producto_nombre, producto_descripcion, producto_proovedor, cantidad_total"
+            "producto_id, producto_nombre, producto_descripcion, producto_proovedor, producto_categoria, cantidad_total"
         ).execute()
         if not productos.data:
             raise HTTPException(status_code=404, detail="No se encontraron productos")
@@ -347,7 +349,8 @@ async def agregar_producto(
     producto_id: int,
     producto_nombre: str,
     producto_descripcion: str,
-    producto_proovedor: int
+    producto_proovedor: int,
+    producto_categoria: Optional[str] = None
 ):
     try:
         producto_existente = supabase.table("producto").select("*").eq("producto_id", producto_id).execute()
@@ -357,7 +360,8 @@ async def agregar_producto(
             "producto_id": producto_id,
             "producto_nombre": producto_nombre,
             "producto_descripcion": producto_descripcion,
-            "producto_proovedor": producto_proovedor
+            "producto_proovedor": producto_proovedor,
+            "producto_categoria": producto_categoria
         }
         data = supabase.table("producto").insert(producto_data).execute()
         if not data.data:
@@ -381,6 +385,8 @@ async def actualizar_producto(producto_id: int, datos: ProductoUpdate):
             producto_data["producto_descripcion"] = datos.producto_descripcion
         if datos.producto_proovedor is not None:
             producto_data["producto_proovedor"] = datos.producto_proovedor
+        if datos.producto_categoria is not None:
+            producto_data["producto_categoria"] = datos.producto_categoria
         if not producto_data:
             raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
         data = supabase.table("producto").update(producto_data).eq("producto_id", producto_id).execute()
