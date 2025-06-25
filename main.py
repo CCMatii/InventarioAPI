@@ -32,13 +32,13 @@ app.add_middleware(
 
 class UsuarioBase(BaseModel):
     usuario_nombre: str
-    cargo_nombre: str  
+    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
 
 class UsuarioCreate(BaseModel):
     usuario_id: int
     usuario_nombre: str
     usuario_password: str
-    cargo_nombre: str
+    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
 
 class Usuario(UsuarioBase):
     usuario_id: int
@@ -49,11 +49,18 @@ class Usuario(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     usuario_nombre: Optional[str] = None
     usuario_password: Optional[str] = None
-    cargo_nombre: Optional[str] = None
+    cargo_nombre: Optional[str] = None  # Cambiado de cargo_id a cargo_nombre
 
 class CargoBase(BaseModel):
     cargo_nombre: str
     cargo_descripcion: str
+
+class CargoCreate(CargoBase):
+    cargo_id: int
+
+class CargoUpdate(BaseModel):
+    cargo_nombre: Optional[str] = None
+    cargo_descripcion: Optional[str] = None
 
 class Cargo(CargoBase):
     class Config:
@@ -62,8 +69,8 @@ class Cargo(CargoBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    usuario_id: int
     cargo_nombre: str
+    usuario_id: int
 
 class TokenData(BaseModel):
     usuario_id: Optional[str] = None
@@ -72,6 +79,7 @@ class ProductoBase(BaseModel):
     producto_nombre: str
     producto_descripcion: str
     producto_proovedor: int
+    cantidad_total: Optional[int] = None 
 
 class ProductoCreate(ProductoBase):
     producto_id: int
@@ -109,14 +117,6 @@ class ProveedorBase(BaseModel):
 class ProveedorCreate(ProveedorBase):
     proveedor_id: int
 
-class ProveedorUpdate(BaseModel):
-    proveedor_nombre: Optional[str] = None
-    proveedor_vendedor: Optional[str] = None
-    proveedor_contacto: Optional[str] = None
-    proveedor_direccion: Optional[str] = None
-    proveedor_comuna: Optional[str] = None
-    proveedor_giro: Optional[str] = None
-
 class InventarioBase(BaseModel):
     producto_id: int
     producto_nombre: str
@@ -131,17 +131,16 @@ class InventarioUpdate(BaseModel):
     bodega_id: Optional[int] = None
     inventario_cantidad: Optional[int] = None
 
-class BodegaBase(BaseModel):
-    bodega_nombre: str
-    bodega_ubicacion: str
+class CategoriaBase(BaseModel):
+    categoria_nombre: str
+    categoria_descripcion: str
 
-class BodegaCreate(BodegaBase):
-    bodega_id: int 
+class CategoriaCreate(CategoriaBase):
+    categoria_id: int
 
-class BodegaUpdate(BaseModel):
-    bodega_nombre: Optional[str] = None
-    bodega_ubicacion: Optional[str] = None
-
+class CategoriaUpdate(BaseModel):
+    categoria_nombre: Optional[str] = None
+    categoria_descripcion: Optional[str] = None
 
 # Funciones de ayuda
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -186,7 +185,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
-        usuario_id = int(form_data.username)
+        usuario_id = int(form_data.username)  # Usamos username para el ID
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -274,32 +273,6 @@ async def agregar_usuario(
         print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
-@app.post("/cargos/add", response_model=Cargo)
-async def agregar_cargo(
-    cargo_nombre: str,
-    cargo_descripcion: str
-):
-    try:
-        # Verificar si el cargo ya existe
-        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
-        if cargo_existente.data:
-            raise HTTPException(status_code=400, detail="El cargo especificado ya existe")
-        
-        # Insertar nuevo cargo
-        cargo_data = {
-            "cargo_nombre": cargo_nombre,
-            "cargo_descripcion": cargo_descripcion
-        }
-        data = supabase.table("cargo").insert(cargo_data).execute()
-        if not data.data:
-            raise HTTPException(status_code=500, detail="Error al agregar el cargo")
-        
-        return data.data[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-    
 @app.put("/usuarios/update/{usuario_id}", response_model=Usuario)
 async def actualizar_usuario(usuario_id: int, datos: UsuarioUpdate):
     try:
@@ -356,22 +329,12 @@ async def eliminar_usuario(usuario_id: int):
     except Exception as e:
         print(f"Error inesperado: {e}")  # Log para depuración
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-@app.get("/cargos/", response_model=list[dict])
-async def listar_cargos():
-    try:
-        cargos = supabase.table("cargo").select("cargo_nombre, cargo_descripcion").execute()
-        if not cargos.data:
-            raise HTTPException(status_code=404, detail="No se encontraron cargos")
-        return cargos.data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener los cargos: {str(e)}")
     
 @app.get("/productos/", response_model=list[dict])
 async def listar_productos():
     try:
         productos = supabase.table("producto").select(
-            "producto_id, producto_nombre, producto_descripcion, producto_proovedor"
+            "producto_id, producto_nombre, producto_descripcion, producto_proovedor, cantidad_total"
         ).execute()
         if not productos.data:
             raise HTTPException(status_code=404, detail="No se encontraron productos")
@@ -448,7 +411,7 @@ async def eliminar_producto(producto_id: int):
 async def listar_movimientos():
     try:
         movimientos = supabase.table("movimientos").select(
-            "movimiento_id, movimiento_producto, movimiento_descripcion, bodega_origen, bodega_destino, cantidad, movimiento_usuario"
+            "movimiento_id, movimiento_producto, movimiento_descripcion, bodega_origen, bodega_destino, movimiento_usuario"
         ).execute()
         if not movimientos.data:
             raise HTTPException(status_code=404, detail="No se encontraron movimientos")
@@ -569,7 +532,7 @@ async def agregar_proveedor(
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
 @app.put("/proveedores/update/{proveedor_id}", response_model=dict)
-async def actualizar_proveedor(proveedor_id: int, datos: ProveedorUpdate):
+async def actualizar_proveedor(proveedor_id: int, datos: ProveedorBase):
     try:
         proveedor_existente = supabase.table("proveedor").select("*").eq("proveedor_id", proveedor_id).execute()
         if not proveedor_existente.data:
@@ -743,74 +706,113 @@ async def eliminar_inventario(inventario_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
-@app.get("/usuarios/me", response_model=dict)
-async def obtener_usuario_actual(current_user: dict = Depends(get_current_user)):
+@app.get("/cargo/", response_model=list[dict])
+async def listar_cargos():
     try:
-        return {
-            "usuario_id": current_user["usuario_id"],
-            "usuario_nombre": current_user["usuario_nombre"],
-            "cargo_nombre": current_user["cargo_nombre"]
-        }
+        cargos = supabase.table("cargo").select("cargo_nombre, cargo_descripcion").execute()
+        if not cargos.data:
+            raise HTTPException(status_code=404, detail="No se encontraron cargos")
+        return cargos.data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener el usuario autenticado: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener los cargos: {str(e)}")
     
-@app.get("/bodegas/", response_model=list[dict])
-async def listar_bodegas():
-    try:
-        bodegas = supabase.table("bodega").select("*").execute()
-        if not bodegas.data:
-            raise HTTPException(status_code=404, detail="No se encontraron bodegas")
-        return bodegas.data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener las bodegas: {str(e)}")
-    
-@app.post("/bodegas/add", response_model=dict)
-async def agregar_bodega(
-    bodega_id: int,
-    bodega_nombre: str,
-    bodega_ubicacion: str,
+@app.post("/cargo/add", response_model=Cargo)
+async def agregar_cargo(
+    cargo_nombre: str,
+    cargo_descripcion: str
 ):
     try:
-        # Verificar si la bodega ya existe
-        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
-        if bodega_existente.data:
-            raise HTTPException(status_code=400, detail="El ID de bodega ya existe")
+        # Verificar si el cargo ya existe
+        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
+        if cargo_existente.data:
+            raise HTTPException(status_code=400, detail="El cargo especificado ya existe")
         
-        # Insertar nueva bodega
-        bodega_data = {
-            "bodega_id": bodega_id,
-            "bodega_nombre": bodega_nombre,
-            "bodega_ubicacion": bodega_ubicacion
+        # Insertar nuevo cargo
+        cargo_data = {
+            "cargo_nombre": cargo_nombre,
+            "cargo_descripcion": cargo_descripcion
         }
-        data = supabase.table("bodega").insert(bodega_data).execute()
+        data = supabase.table("cargo").insert(cargo_data).execute()
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al agregar la bodega")
+            raise HTTPException(status_code=500, detail="Error al agregar el cargo")
         
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.put("/cargo/update/{cargo_nombre}", response_model=Cargo)
+async def actualizar_cargo(cargo_nombre: str, datos: CargoUpdate):
+    try:
+        # Verificar si el cargo existe
+        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
+        if not cargo_existente.data:
+            raise HTTPException(status_code=404, detail="Cargo no encontrado")
+
+        # Actualizar el cargo
+        cargo_data = {
+            "cargo_nombre": datos.cargo_nombre,
+            "cargo_descripcion": datos.cargo_descripcion
+        }
+        data = supabase.table("cargo").update(cargo_data).eq("cargo_nombre", cargo_nombre).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar el cargo")
+
         return data.data[0]
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-@app.put("/bodegas/update/{bodega_id}", response_model=dict)
-async def actualizar_bodega(bodega_id: int, datos: BodegaBase):
+@app.delete("/cargo/delete/{cargo_nombre}", response_model=dict)
+async def eliminar_cargo(cargo_nombre: str):
     try:
-        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
-        if not bodega_existente.data:
-            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
+        # Verificar si el cargo existe
+        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
+        if not cargo_existente.data:
+            raise HTTPException(status_code=404, detail="Cargo no encontrado")
         
-        bodega_data = {}
-        if datos.bodega_nombre is not None:
-            bodega_data["bodega_nombre"] = datos.bodega_nombre
-        if datos.bodega_ubicacion is not None:
-            bodega_data["bodega_ubicacion"] = datos.bodega_ubicacion
-        
-        if not bodega_data:
-            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
-        
-        data = supabase.table("bodega").update(bodega_data).eq("bodega_id", bodega_id).execute()
+        # Eliminar el cargo
+        data = supabase.table("cargo").delete().eq("cargo_nombre", cargo_nombre).execute()
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al actualizar la bodega")
+            raise HTTPException(status_code=500, detail="Error al eliminar el cargo")
+        
+        return {"message": f"Cargo '{cargo_nombre}' eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/categoria/", response_model=list[dict])
+async def listar_categorias():
+    try:
+        categorias = supabase.table("categoria").select("categoria_nombre, categoria_descripcion").execute()
+        if not categorias.data:
+            raise HTTPException(status_code=404, detail="No se encontraron categorías")
+        return categorias.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener las categorías: {str(e)}")
+    
+@app.post("/categoria/add", response_model=CategoriaCreate)
+async def agregar_categoria(
+    categoria_nombre: str,
+    categoria_descripcion: str
+):
+    try:
+        # Verificar si la categoría ya existe
+        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
+        if categoria_existente.data:
+            raise HTTPException(status_code=400, detail="La categoría especificada ya existe")
+        
+        # Insertar nueva categoría
+        categoria_data = {
+            "categoria_nombre": categoria_nombre,
+            "categoria_descripcion": categoria_descripcion
+        }
+        data = supabase.table("categoria").insert(categoria_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar la categoría")
         
         return data.data[0]
     except HTTPException:
@@ -818,19 +820,52 @@ async def actualizar_bodega(bodega_id: int, datos: BodegaBase):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
     
-@app.delete("/bodegas/delete/{bodega_id}", response_model=dict)
-async def eliminar_bodega(bodega_id: int):
+@app.put("/categoria/update/{categoria_nombre}", response_model=CategoriaUpdate)
+async def actualizar_categoria(categoria_nombre: str, datos: CategoriaUpdate):
     try:
-        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
-        if not bodega_existente.data:
-            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
-        
-        data = supabase.table("bodega").delete().eq("bodega_id", bodega_id).execute()
+        # Verificar si la categoría existe
+        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
+        if not categoria_existente.data:
+            raise HTTPException(status_code=404, detail="Categoría no encontrada")
+
+        # Actualizar la categoría
+        categoria_data = {}
+        if datos.categoria_nombre is not None:
+            categoria_data["categoria_nombre"] = datos.categoria_nombre
+        if datos.categoria_descripcion is not None:
+            categoria_data["categoria_descripcion"] = datos.categoria_descripcion
+
+        if not categoria_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+
+        data = supabase.table("categoria").update(categoria_data).eq("categoria_nombre", categoria_nombre).execute()
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al eliminar la bodega")
-        
-        return {"message": f"Bodega con ID {bodega_id} eliminada exitosamente"}
+            raise HTTPException(status_code=500, detail="Error al actualizar la categoría")
+
+        return data.data[0]
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.delete("/categoria/delete/{categoria_nombre}", response_model=dict)
+async def eliminar_categoria(categoria_nombre: str):
+    try:
+        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
+        if not categoria_existente.data:
+            raise HTTPException(status_code=404, detail="Categoría no encontrada")
+        
+        # Eliminar la categoría
+        data = supabase.table("categoria").delete().eq("categoria_nombre", categoria_nombre).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar la categoría")
+        
+        return {"message": f"Categoría '{categoria_nombre}' eliminada exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+
+
+
