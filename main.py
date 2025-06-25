@@ -133,6 +133,17 @@ class InventarioUpdate(BaseModel):
     bodega_id: Optional[int] = None
     inventario_cantidad: Optional[int] = None
 
+class BodegaBase(BaseModel):
+    bodega_nombre: str
+    bodega_ubicacion: str
+
+class BodegaCreate(BodegaBase):
+    bodega_id: int 
+
+class BodegaUpdate(BaseModel):
+    bodega_nombre: Optional[str] = None
+    bodega_ubicacion: Optional[str] = None
+
 class CategoriaBase(BaseModel):
     categoria_nombre: str
     categoria_descripcion: str
@@ -707,6 +718,87 @@ async def eliminar_inventario(inventario_id: int):
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al eliminar el registro del inventario")
         return {"message": f"Registro con ID {inventario_id} eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@app.get("/bodegas/", response_model=list[dict])
+async def listar_bodegas():
+    try:
+        bodegas = supabase.table("bodega").select("*").execute()
+        if not bodegas.data:
+            raise HTTPException(status_code=404, detail="No se encontraron bodegas")
+        return bodegas.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener las bodegas: {str(e)}")
+
+@app.post("/bodegas/add", response_model=dict)
+async def agregar_bodega(
+    bodega_id: int,
+    bodega_nombre: str,
+    bodega_ubicacion: str,
+):
+    try:
+        # Verificar si la bodega ya existe
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if bodega_existente.data:
+            raise HTTPException(status_code=400, detail="El ID de bodega ya existe")
+
+        # Insertar nueva bodega
+        bodega_data = {
+            "bodega_id": bodega_id,
+            "bodega_nombre": bodega_nombre,
+            "bodega_ubicacion": bodega_ubicacion
+        }
+        data = supabase.table("bodega").insert(bodega_data).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al agregar la bodega")
+
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.put("/bodegas/update/{bodega_id}", response_model=dict)
+async def actualizar_bodega(bodega_id: int, datos: BodegaBase):
+    try:
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if not bodega_existente.data:
+            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
+
+        bodega_data = {}
+        if datos.bodega_nombre is not None:
+            bodega_data["bodega_nombre"] = datos.bodega_nombre
+        if datos.bodega_ubicacion is not None:
+            bodega_data["bodega_ubicacion"] = datos.bodega_ubicacion
+
+        if not bodega_data:
+            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+
+        data = supabase.table("bodega").update(bodega_data).eq("bodega_id", bodega_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al actualizar la bodega")
+
+        return data.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+@app.delete("/bodegas/delete/{bodega_id}", response_model=dict)
+async def eliminar_bodega(bodega_id: int):
+    try:
+        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
+        if not bodega_existente.data:
+            raise HTTPException(status_code=404, detail="La bodega especificada no existe")
+
+        data = supabase.table("bodega").delete().eq("bodega_id", bodega_id).execute()
+        if not data.data:
+            raise HTTPException(status_code=500, detail="Error al eliminar la bodega")
+
+        return {"message": f"Bodega con ID {bodega_id} eliminada exitosamente"}
     except HTTPException:
         raise
     except Exception as e:
