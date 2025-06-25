@@ -32,13 +32,13 @@ app.add_middleware(
 
 class UsuarioBase(BaseModel):
     usuario_nombre: str
-    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: str  
 
 class UsuarioCreate(BaseModel):
     usuario_id: int
     usuario_nombre: str
     usuario_password: str
-    cargo_nombre: str  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: str  
 
 class Usuario(UsuarioBase):
     usuario_id: int
@@ -49,7 +49,7 @@ class Usuario(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     usuario_nombre: Optional[str] = None
     usuario_password: Optional[str] = None
-    cargo_nombre: Optional[str] = None  # Cambiado de cargo_id a cargo_nombre
+    cargo_nombre: Optional[str] = None  
 
 class CargoBase(BaseModel):
     cargo_nombre: str
@@ -138,7 +138,7 @@ class CategoriaBase(BaseModel):
     categoria_descripcion: str
 
 class CategoriaCreate(CategoriaBase):
-    categoria_id: int
+    categoria_nombre: str
 
 class CategoriaUpdate(BaseModel):
     categoria_nombre: Optional[str] = None
