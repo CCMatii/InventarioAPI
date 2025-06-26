@@ -96,6 +96,7 @@ class MovimientoBase(BaseModel):
     movimiento_descripcion: str
     bodega_origen: int
     bodega_destino: int
+    cantidad: int
     movimiento_usuario: int
 
 class MovimientoCreate(BaseModel):
@@ -428,7 +429,7 @@ async def eliminar_producto(producto_id: int):
 async def listar_movimientos():
     try:
         movimientos = supabase.table("movimientos").select(
-            "movimiento_id, movimiento_producto, movimiento_descripcion, bodega_origen, bodega_destino, movimiento_usuario"
+            "movimiento_id, movimiento_producto, movimiento_descripcion, bodega_origen, cantidad, bodega_destino, movimiento_usuario"
         ).execute()
         if not movimientos.data:
             raise HTTPException(status_code=404, detail="No se encontraron movimientos")
