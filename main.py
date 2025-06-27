@@ -522,7 +522,6 @@ async def listar_proveedores():
 
 @app.post("/proveedores/add", response_model=dict)
 async def agregar_proveedor(
-    proveedor_id: int,
     proveedor_nombre: str,
     proveedor_vendedor: str,
     proveedor_contacto: str,
@@ -531,8 +530,12 @@ async def agregar_proveedor(
     proveedor_giro: str
 ):
     try:
+        # Obtener el último proveedor_id
+        ultimo = supabase.table("proveedor").select("proveedor_id").order("proveedor_id", desc=True).limit(1).execute()
+        nuevo_id = (ultimo.data[0]["proveedor_id"] + 1) if ultimo.data else 1
+
         proveedor_data = {
-            "proveedor_id": proveedor_id,
+            "proveedor_id": nuevo_id,
             "proveedor_nombre": proveedor_nombre,
             "proveedor_vendedor": proveedor_vendedor,
             "proveedor_contacto": proveedor_contacto,
