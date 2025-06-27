@@ -358,18 +358,18 @@ async def listar_productos():
     
 @app.post("/productos/add", response_model=dict)
 async def agregar_producto(
-    producto_id: int,
     producto_nombre: str,
     producto_descripcion: str,
     producto_proovedor: int,
     producto_categoria: Optional[str] = None
 ):
     try:
-        producto_existente = supabase.table("producto").select("*").eq("producto_id", producto_id).execute()
-        if producto_existente.data:
-            raise HTTPException(status_code=400, detail="El ID de producto ya existe")
+        # Obtener el último producto_id
+        ultimo = supabase.table("producto").select("producto_id").order("producto_id", desc=True).limit(1).execute()
+        nuevo_id = (ultimo.data[0]["producto_id"] + 1) if ultimo.data else 1
+
         producto_data = {
-            "producto_id": producto_id,
+            "producto_id": nuevo_id,
             "producto_nombre": producto_nombre,
             "producto_descripcion": producto_descripcion,
             "producto_proovedor": producto_proovedor,
@@ -739,26 +739,22 @@ async def listar_bodegas():
 
 @app.post("/bodegas/add", response_model=dict)
 async def agregar_bodega(
-    bodega_id: int,
     bodega_nombre: str,
-    bodega_ubicacion: str,
+    bodega_ubicacion: str
 ):
     try:
-        # Verificar si la bodega ya existe
-        bodega_existente = supabase.table("bodega").select("*").eq("bodega_id", bodega_id).execute()
-        if bodega_existente.data:
-            raise HTTPException(status_code=400, detail="El ID de bodega ya existe")
+        # Obtener el último bodega_id
+        ultimo = supabase.table("bodega").select("bodega_id").order("bodega_id", desc=True).limit(1).execute()
+        nuevo_id = (ultimo.data[0]["bodega_id"] + 1) if ultimo.data else 1
 
-        # Insertar nueva bodega
         bodega_data = {
-            "bodega_id": bodega_id,
+            "bodega_id": nuevo_id,
             "bodega_nombre": bodega_nombre,
             "bodega_ubicacion": bodega_ubicacion
         }
         data = supabase.table("bodega").insert(bodega_data).execute()
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al agregar la bodega")
-
         return data.data[0]
     except HTTPException:
         raise
