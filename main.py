@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 from jose import JWTError, jwt
+from urllib.parse import unquote
 
 load_dotenv()
 
@@ -946,23 +947,31 @@ async def actualizar_categoria(categoria_nombre: str, datos: CategoriaUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-@app.delete("/categoria/delete/{categoria_nombre}", response_model=dict)
+@app.delete("/categoria/delete/{categoria_nombre}")
 async def eliminar_categoria(categoria_nombre: str):
     try:
-        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
+        # Decodificar el nombre de la categoría (convierte %20 en espacios)
+        nombre_decodificado = unquote(categoria_nombre)
+        
+        # Verificar existencia (comparación exacta incluyendo espacios)
+        categoria_existente = supabase.table("categoria") \
+            .select("*") \
+            .eq("categoria_nombre", nombre_decodificado) \
+            .execute()
+
         if not categoria_existente.data:
             raise HTTPException(status_code=404, detail="Categoría no encontrada")
-        
-        # Eliminar la categoría
-        data = supabase.table("categoria").delete().eq("categoria_nombre", categoria_nombre).execute()
-        if not data.data:
-            raise HTTPException(status_code=500, detail="Error al eliminar la categoría")
-        
-        return {"message": f"Categoría '{categoria_nombre}' eliminada exitosamente"}
-    except HTTPException:
-        raise
+
+        # Eliminar
+        supabase.table("categoria") \
+            .delete() \
+            .eq("categoria_nombre", nombre_decodificado) \
+            .execute()
+
+        return {"message": f"Categoría '{nombre_decodificado}' eliminada exitosamente"}
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
