@@ -844,44 +844,87 @@ async def agregar_cargo(
 @app.put("/cargo/update/{cargo_nombre}", response_model=Cargo)
 async def actualizar_cargo(cargo_nombre: str, datos: CargoUpdate):
     try:
+        # Decodificar el nombre del cargo
+        nombre_decodificado = unquote(cargo_nombre)
+        
         # Verificar si el cargo existe
-        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
+        cargo_existente = supabase.table("cargo")\
+            .select("*")\
+            .eq("cargo_nombre", nombre_decodificado)\
+            .execute()
+            
         if not cargo_existente.data:
-            raise HTTPException(status_code=404, detail="Cargo no encontrado")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Cargo '{nombre_decodificado}' no encontrado"
+            )
 
         # Actualizar el cargo
         cargo_data = {
             "cargo_nombre": datos.cargo_nombre,
             "cargo_descripcion": datos.cargo_descripcion
         }
-        data = supabase.table("cargo").update(cargo_data).eq("cargo_nombre", cargo_nombre).execute()
+        
+        data = supabase.table("cargo")\
+            .update(cargo_data)\
+            .eq("cargo_nombre", nombre_decodificado)\
+            .execute()
+            
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al actualizar el cargo")
+            raise HTTPException(
+                status_code=500,
+                detail="Error al actualizar el cargo"
+            )
 
         return data.data[0]
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
 
 @app.delete("/cargo/delete/{cargo_nombre}", response_model=dict)
 async def eliminar_cargo(cargo_nombre: str):
     try:
+        # Decodificar el nombre del cargo
+        nombre_decodificado = unquote(cargo_nombre)
+        
         # Verificar si el cargo existe
-        cargo_existente = supabase.table("cargo").select("*").eq("cargo_nombre", cargo_nombre).execute()
+        cargo_existente = supabase.table("cargo")\
+            .select("*")\
+            .eq("cargo_nombre", nombre_decodificado)\
+            .execute()
+            
         if not cargo_existente.data:
-            raise HTTPException(status_code=404, detail="Cargo no encontrado")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Cargo '{nombre_decodificado}' no encontrado"
+            )
         
         # Eliminar el cargo
-        data = supabase.table("cargo").delete().eq("cargo_nombre", cargo_nombre).execute()
+        data = supabase.table("cargo")\
+            .delete()\
+            .eq("cargo_nombre", nombre_decodificado)\
+            .execute()
+            
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al eliminar el cargo")
+            raise HTTPException(
+                status_code=500,
+                detail="Error al eliminar el cargo"
+            )
         
-        return {"message": f"Cargo '{cargo_nombre}' eliminado exitosamente"}
+        return {"message": f"Cargo '{nombre_decodificado}' eliminado exitosamente"}
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
     
 @app.get("/categoria/", response_model=list[dict])
 async def listar_categorias():
@@ -922,12 +965,22 @@ async def agregar_categoria(
 @app.put("/categoria/update/{categoria_nombre}", response_model=CategoriaUpdate)
 async def actualizar_categoria(categoria_nombre: str, datos: CategoriaUpdate):
     try:
+        # Decodificar el nombre de la categoría
+        nombre_decodificado = unquote(categoria_nombre)
+        
         # Verificar si la categoría existe
-        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
+        categoria_existente = supabase.table("categoria")\
+            .select("*")\
+            .eq("categoria_nombre", nombre_decodificado)\
+            .execute()
+            
         if not categoria_existente.data:
-            raise HTTPException(status_code=404, detail="Categoría no encontrada")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Categoría '{nombre_decodificado}' no encontrada"
+            )
 
-        # Actualizar la categoría
+        # Preparar datos de actualización
         categoria_data = {}
         if datos.categoria_nombre is not None:
             categoria_data["categoria_nombre"] = datos.categoria_nombre
@@ -935,17 +988,32 @@ async def actualizar_categoria(categoria_nombre: str, datos: CategoriaUpdate):
             categoria_data["categoria_descripcion"] = datos.categoria_descripcion
 
         if not categoria_data:
-            raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+            raise HTTPException(
+                status_code=400,
+                detail="No se proporcionaron datos para actualizar"
+            )
 
-        data = supabase.table("categoria").update(categoria_data).eq("categoria_nombre", categoria_nombre).execute()
+        # Actualizar la categoría
+        data = supabase.table("categoria")\
+            .update(categoria_data)\
+            .eq("categoria_nombre", nombre_decodificado)\
+            .execute()
+
         if not data.data:
-            raise HTTPException(status_code=500, detail="Error al actualizar la categoría")
+            raise HTTPException(
+                status_code=500,
+                detail="Error al actualizar la categoría"
+            )
 
         return data.data[0]
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
 
 @app.delete("/categoria/delete/{categoria_nombre}")
 async def eliminar_categoria(categoria_nombre: str):
