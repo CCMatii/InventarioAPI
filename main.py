@@ -949,30 +949,20 @@ async def actualizar_categoria(categoria_nombre: str, datos: CategoriaUpdate):
 @app.delete("/categoria/delete/{categoria_nombre}", response_model=dict)
 async def eliminar_categoria(categoria_nombre: str):
     try:
-        nombre_decodificado = urllib.parse.unquote(categoria_nombre)
-        categoria_existente = supabase.table("categoria")\
-            .select("*")\
-            .eq("categoria_nombre", nombre_decodificado.strip())\
-            .execute()
-            
+        categoria_existente = supabase.table("categoria").select("*").eq("categoria_nombre", categoria_nombre).execute()
         if not categoria_existente.data:
-            raise HTTPException(status_code=404, detail=f"Categoría '{nombre_decodificado}' no encontrada")
+            raise HTTPException(status_code=404, detail="Categoría no encontrada")
         
         # Eliminar la categoría
-        data = supabase.table("categoria")\
-            .delete()\
-            .eq("categoria_nombre", nombre_decodificado.strip())\
-            .execute()
-            
+        data = supabase.table("categoria").delete().eq("categoria_nombre", categoria_nombre).execute()
         if not data.data:
             raise HTTPException(status_code=500, detail="Error al eliminar la categoría")
         
-        return {"message": f"Categoría '{nombre_decodificado}' eliminada exitosamente"}
+        return {"message": f"Categoría '{categoria_nombre}' eliminada exitosamente"}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
 
 
 
